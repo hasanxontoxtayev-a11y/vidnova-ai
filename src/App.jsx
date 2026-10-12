@@ -6,16 +6,23 @@ import BestTimePlanner from './components/BestTimePlanner';
 import CommentAgent from './components/CommentAgent';
 import ConnectChannel from './components/ConnectChannel';
 import MobileAgentMode from './components/MobileAgentMode';
-import { 
-  Sparkles, Flame, Image, Clock, MessageSquare, Shield, 
-  CheckCircle, Smartphone, Download, ExternalLink, X, Bot, Play 
+import {
+  Flame, Image, Clock, MessageSquare,
+  CheckCircle, Smartphone, Download, ExternalLink, X
 } from 'lucide-react';
-import YoutubeIcon from './components/icons/YoutubeIcon';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('analytics');
   const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' | 'mobile-agent'
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [selectedVideoForThumbnail, setSelectedVideoForThumbnail] = useState(null);
+
+  const handleAnalyzeThumbnailFromVideo = (video) => {
+    setSelectedVideoForThumbnail(video);
+    setActiveTab('thumbnail');
+    setViewMode('dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-[#080b11] text-gray-100 flex flex-col selection:bg-[#FF385C] selection:text-white">
@@ -30,37 +37,42 @@ export default function App() {
           <div className="flex items-center gap-2 text-gray-300">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>
-              <strong>Yangi:</strong> Telefonda faqat <strong className="text-white">AI Agent (Copilot)</strong> sifatida ishlaydi!
+              <strong>100% Ochiq Maʼlumotlar:</strong> Barcha kanallar statistikasi YouTubeʼdan real vaqtda olinadi!
             </span>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => setViewMode(viewMode === 'dashboard' ? 'mobile-agent' : 'dashboard')}
-              className="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] flex items-center gap-1.5 transition-all"
+              className="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Smartphone className="w-3.5 h-3.5 text-[#00F0FF]" />
-              <span>{viewMode === 'dashboard' ? "Mobil Agent Rejimini Ko'rish" : "To'liq Dashboardga Qaytish"}</span>
+              <span>{viewMode === 'dashboard' ? 'Mobil Agent Rejimini Koʻrish' : 'Toʻliq Dashboardga Qaytish'}</span>
             </button>
 
             <button
               onClick={() => setShowInstallModal(true)}
-              className="px-3 py-1 rounded-xl bg-gradient-to-r from-[#FF385C] to-[#8B5CF6] text-white font-bold text-[11px] flex items-center gap-1.5 shadow-md shadow-[#FF385C]/20 hover:brightness-110 transition-all"
+              className="px-3 py-1 rounded-xl bg-gradient-to-r from-[#FF385C] to-[#8B5CF6] text-white font-bold text-[11px] flex items-center gap-1.5 shadow-md shadow-[#FF385C]/20 hover:brightness-110 transition-all cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Telefonga O'rnatish</span>
+              <span>Telefonga Oʻrnatish</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Main Navbar */}
-      <Navbar activeTab={activeTab} setActiveTab={(tab) => { setActiveTab(tab); setViewMode('dashboard'); }} />
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          setViewMode('dashboard');
+        }}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-12">
         {viewMode === 'mobile-agent' ? (
-          /* Mobile AI Agent Pure Mode */
           <div className="space-y-4">
             <div className="max-w-md mx-auto text-center space-y-1">
               <span className="text-xs text-gray-400">Telefon ekrani uchun moslashtirilgan rejim:</span>
@@ -69,10 +81,13 @@ export default function App() {
             <MobileAgentMode onSwitchToDashboard={() => setViewMode('dashboard')} />
           </div>
         ) : (
-          /* Desktop / Full Dashboard Mode */
           <>
-            {activeTab === 'analytics' && <ChannelAnalytics />}
-            {activeTab === 'thumbnail' && <ThumbnailLab />}
+            {activeTab === 'analytics' && (
+              <ChannelAnalytics onAnalyzeThumbnail={handleAnalyzeThumbnailFromVideo} />
+            )}
+            {activeTab === 'thumbnail' && (
+              <ThumbnailLab initialVideo={selectedVideoForThumbnail} />
+            )}
             {activeTab === 'timing' && <BestTimePlanner />}
             {activeTab === 'comments' && <CommentAgent />}
             {activeTab === 'connect' && <ConnectChannel />}
@@ -84,25 +99,25 @@ export default function App() {
                   Nima Uchun Aynan <span className="text-[#FF385C]">VidNova AI</span>?
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-400">
-                  Oddiy statistika saytlaridan farqli ravishda, VidNova sizning o'rningizga ishlovchi to'liq AI agentdir.
+                  Oddiy statistika saytlaridan farqli ravishda, VidNova sizning oʻrningizga ishlovchi toʻliq AI agentdir.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div 
+                <div
                   onClick={() => setActiveTab('analytics')}
                   className="glass-panel p-5 rounded-2xl cursor-pointer hover:border-[#FF385C]/30 transition-all group"
                 >
                   <div className="w-10 h-10 rounded-xl bg-[#FF385C]/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                     <Flame className="w-5 h-5 text-[#FF385C]" />
                   </div>
-                  <h4 className="text-sm font-bold text-white">VidIQ Analogi + Daromad</h4>
+                  <h4 className="text-sm font-bold text-white">Haqiqiy YouTube Tahlili</h4>
                   <p className="text-xs text-gray-400 mt-1">
-                    Istalgan kanalning oylik obunachilari va taxminiy daromadini real CPM bilan hisoblang.
+                    Istalgan kanalning real obunachilari, prasmotrlari, videolari va daromadini jonli koʻring.
                   </p>
                 </div>
 
-                <div 
+                <div
                   onClick={() => setActiveTab('thumbnail')}
                   className="glass-panel p-5 rounded-2xl cursor-pointer hover:border-[#8B5CF6]/30 transition-all group"
                 >
@@ -111,11 +126,11 @@ export default function App() {
                   </div>
                   <h4 className="text-sm font-bold text-white">AI Vision Abloshka</h4>
                   <p className="text-xs text-gray-400 mt-1">
-                    Muqova rasmini yuklang va AI videoning o'tish ehtimoli (CTR)ni 10 balldan baholab beradi.
+                    Muqova rasmini yoki video linkini kiriting va CTR ehtimolini 10 balldan baholang.
                   </p>
                 </div>
 
-                <div 
+                <div
                   onClick={() => setActiveTab('timing')}
                   className="glass-panel p-5 rounded-2xl cursor-pointer hover:border-[#00F0FF]/30 transition-all group"
                 >
@@ -124,20 +139,20 @@ export default function App() {
                   </div>
                   <h4 className="text-sm font-bold text-white">Optimal Joylash Vaqti</h4>
                   <p className="text-xs text-gray-400 mt-1">
-                    Yo'nalish va auditoriya xatti-harakatlariga qarab videoni qaysi soatda qo'yishni biling.
+                    Yoʻnalish va auditoriya xatti-harakatlariga qarab videoni qaysi soatda qoʻyishni biling.
                   </p>
                 </div>
 
-                <div 
+                <div
                   onClick={() => setActiveTab('comments')}
                   className="glass-panel p-5 rounded-2xl cursor-pointer hover:border-emerald-500/30 transition-all group"
                 >
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                     <MessageSquare className="w-5 h-5 text-emerald-400" />
                   </div>
-                  <h4 className="text-sm font-bold text-white">Ko'p Tilli Komment Agenti</h4>
+                  <h4 className="text-sm font-bold text-white">Koʻp Tilli Komment Agenti</h4>
                   <p className="text-xs text-gray-400 mt-1">
-                    O'zbek, rus yoki ingliz tilidagi har qanday izohga o'sha tilda avtomatik aqlli javob.
+                    Oʻzbek, rus yoki ingliz tilidagi har qanday izohga oʻsha tilda avtomatik aqlli javob.
                   </p>
                 </div>
               </div>
@@ -163,32 +178,31 @@ export default function App() {
                   <Smartphone className="w-6 h-6 text-[#FF385C]" />
                 </div>
               </div>
-              <h3 className="text-xl font-black text-white">Telefonga O'rnatish & Play Market</h3>
+              <h3 className="text-xl font-black text-white">Telefonga Oʻrnatish & Play Market</h3>
               <p className="text-xs text-gray-400">
-                Ilovani mobil qurilmangizga to'g'ridan-to'g'ri o'rnatish va Play Market/App Store integratsiyasi
+                Ilovani mobil qurilmangizga toʻgʻridan-toʻgʻri oʻrnatish va Play Market/App Store integratsiyasi
               </p>
             </div>
 
             <div className="space-y-4 text-xs">
-              {/* Method 1: Instant PWA installation */}
               <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
                 <div className="flex items-center gap-2 text-emerald-400 font-bold">
                   <CheckCircle className="w-4 h-4" />
-                  <span>1. Play Marketga kirmasdan 1-klikda o'rnatish (PWA):</span>
+                  <span>1. Play Marketga kirmasdan 1-klikda oʻrnatish (PWA):</span>
                 </div>
                 <p className="text-gray-300 leading-relaxed">
-                  Telefonda Chrome yoki Safari brauzerida saytni oching va <strong>"Bosh ekranga qo'shish" (Add to Home Screen / Установить приложение)</strong> tugmasini bosing. Ilova telefonga xuddi Play Marketdan o'rnatilgandek alohida belgi (icon) bo'lib tushadi va to'liq <strong>Mobil AI Agent</strong> sifatida ochiladi!
+                  Telefonda Chrome yoki Safari brauzerida <strong>da.gd/vidnova</strong> saytini oching va{' '}
+                  <strong>"Bosh ekranga qoʻshish" (Add to Home Screen / Установить приложение)</strong> tugmasini bosing. Ilova telefonga alohida belgi boʻlib tushadi!
                 </p>
               </div>
 
-              {/* Method 2: Google Play Console & App Store status */}
               <div className="p-4 rounded-2xl bg-[#080b11] border border-white/10 space-y-2">
                 <div className="flex items-center gap-2 text-[#00F0FF] font-bold">
                   <ExternalLink className="w-4 h-4" />
-                  <span>2. Google Play Store & Apple App Store rasmiy joylashtirish:</span>
+                  <span>2. Google Play Store & Apple App Store:</span>
                 </div>
                 <p className="text-gray-400 leading-relaxed">
-                  Ilovaning <strong>`manifest.json`</strong> va mobil yadrosi to'liq tayyorlangan. Rasmiy do'konga chiqarish uchun Google Play Console ($25 bir martalik) yoki Apple Developer ($99/yil) hisobi ulanadi va <strong>TWA (Trusted Web Activity)</strong> yoki <strong>Capacitor (.apk / .aab)</strong> fayli yuklanadi.
+                  Ilovaning <strong>manifest.json</strong> va mobil yadrosi toʻliq tayyorlangan. Rasmiy doʻkonga chiqarish uchun Google Play Console yoki Apple Developer hisobi orqali TWA/Capacitor paketi yuklanadi.
                 </p>
               </div>
             </div>
@@ -200,7 +214,7 @@ export default function App() {
               }}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-[#FF385C] to-[#8B5CF6] text-white font-bold text-xs shadow-lg shadow-[#FF385C]/25 hover:brightness-110 transition-all cursor-pointer"
             >
-              Mobil Agent Ko'rinishini Sinab Ko'rish
+              Mobil Agent Koʻrinishini Sinab Koʻrish
             </button>
           </div>
         </div>
@@ -219,10 +233,10 @@ export default function App() {
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span className="flex items-center gap-1">
               <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-              Barcha foydalanuvchilar uchun 100% Bepul
+              100% Real-Time Ochiq YouTube Maʼlumotlari
             </span>
             <span>•</span>
-            <span>PWA & Mobil Agent Faol</span>
+            <span>da.gd/vidnova</span>
           </div>
 
           <p className="text-xs text-gray-500">

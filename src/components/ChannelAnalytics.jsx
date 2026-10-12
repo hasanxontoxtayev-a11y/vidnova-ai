@@ -1,76 +1,91 @@
-import React, { useState } from 'react';
-import { 
-  Search, TrendingUp, DollarSign, Eye, Users, Video, 
-  Tag, Award, Sparkles, ExternalLink, Sliders, ArrowUpRight, CheckCircle2 
+import React, { useState, useEffect } from 'react';
+import {
+  Search, TrendingUp, DollarSign, Eye, Users, Video,
+  Tag, Award, Sparkles, ExternalLink, Sliders, CheckCircle2,
+  ThumbsUp, MessageCircle, Radio, Image as ImageIcon, AlertCircle
 } from 'lucide-react';
-import { POPULAR_CHANNELS } from '../data/mockData';
+import { fetchRealChannelData, fetchChannelLiveCounters } from '../services/youtubeService';
+
+const QUICK_CHANNELS = [
+  { label: 'Mittivine', query: 'mittivine' },
+  { label: 'SUBYEKTIV', query: 'subyektiv' },
+  { label: 'ISOMTV', query: 'isomtv' },
+  { label: "Najot Ta'lim", query: 'najottalim' },
+  { label: 'Texnoplov', query: 'texnoplov' },
+  { label: 'MrBeast', query: 'mrbeast' }
+];
 
 export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
-  const [query, setQuery] = useState('@najottalim');
-  const [selectedChannel, setSelectedChannel] = useState(POPULAR_CHANNELS['@najottalim']);
-  const [cpm, setCpm] = useState(1.8); // $1.8 CPM default for regional/CIS
-  const [isLoading, setIsLoading] = useState(false);
+  const [query, setQuery] = useState('mittivine');
+  const [selectedChannel, setSelectedChannel] = useState(null);
+  const [cpm, setCpm] = useState(1.8);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isLiveUpdating, setIsLiveUpdating] = useState(true);
+
+  const loadChannel = async (searchTarget, specificItem = null) => {
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      const realData = await fetchRealChannelData(searchTarget, specificItem);
+      setSelectedChannel(realData);
+    } catch (err) {
+      setErrorMsg(err.message || "Kanal ma'lumotlarini olishda xatolik yuz berdi");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load initial real channel (Mittivine) on mount
+  useEffect(() => {
+    loadChannel('mittivine');
+  }, []);
+
+  // Real-time live subscriber & view counter polling every 5 seconds
+  useEffect(() => {
+    if (!selectedChannel?.id || !isLiveUpdating) return;
+    const interval = setInterval(async () => {
+      try {
+        const live = await fetchChannelLiveCounters(selectedChannel.id);
+        if (live.subscriberCount > 0 || live.viewCount > 0) {
+          setSelectedChannel((prev) => {
+            if (!prev || prev.id !== selectedChannel.id) return prev;
+            const newSubs = live.subscriberCount || prev.subscribersCount;
+            const newViews = live.viewCount || prev.viewsCount;
+            const newVids = live.videoCount || prev.videoCount;
+            return {
+              ...prev,
+              subscribersCount: newSubs,
+              subscribers: newSubs.toLocaleString('en-US'),
+              viewsCount: newViews,
+              totalViews: newViews.toLocaleString('en-US'),
+              videoCount: newVids
+            };
+          });
+        }
+      } catch {
+        // silent background poll error
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [selectedChannel?.id, isLiveUpdating]);
 
   const handleSearch = (e) => {
     e?.preventDefault();
     if (!query.trim()) return;
-
-    setIsLoading(true);
-    setTimeout(() => {
-      const normalized = query.toLowerCase().trim();
-      const matchKey = Object.keys(POPULAR_CHANNELS).find(k => 
-        k.toLowerCase().includes(normalized) || 
-        POPULAR_CHANNELS[k].name.toLowerCase().includes(normalized)
-      );
-
-      if (matchKey) {
-        setSelectedChannel(POPULAR_CHANNELS[matchKey]);
-      } else {
-        // Generate dynamic realistic stats for any custom channel!
-        const randomSubs = Math.floor(Math.random() * 800000) + 15000;
-        const randomViews = randomSubs * (Math.floor(Math.random() * 40) + 15);
-        const monthlyViews = Math.floor(randomViews * 0.08);
-
-        setSelectedChannel({
-          name: query.replace('@', '').replace('https://youtube.com/', '').toUpperCase() || "Kanal Tahlili",
-          handle: query.startsWith('@') ? query : `@${query}`,
-          avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
-          subscribers: (randomSubs).toLocaleString(),
-          subscribersCount: randomSubs,
-          totalViews: (randomViews).toLocaleString(),
-          viewsCount: randomViews,
-          videoCount: Math.floor(Math.random() * 250) + 40,
-          monthlyViews: (monthlyViews).toLocaleString(),
-          monthlyViewsCount: monthlyViews,
-          niche: "Media & Kontent",
-          country: "O'zbekiston / Global",
-          monthlyRevenueMin: Math.floor((monthlyViews / 1000) * 0.8),
-          monthlyRevenueMax: Math.floor((monthlyViews / 1000) * 2.5),
-          growthRate: `+${(Math.random() * 12 + 2).toFixed(1)}%`,
-          avgViewPerVideo: Math.floor(monthlyViews / 12).toLocaleString(),
-          engagementRate: `${(Math.random() * 4 + 4).toFixed(1)}%`,
-          seoScore: Math.floor(Math.random() * 20) + 80,
-          topTags: ["YouTube", "Trend", "Video", "AI Tahlil", "Vlog", "Bloger"],
-          recentVideos: [
-            {
-              title: `${query} yangi video tahlili`,
-              views: Math.floor(monthlyViews * 0.25).toLocaleString(),
-              date: "2 kun oldin",
-              thumbnail: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80",
-              ctr: "10.4%",
-              duration: "14:20"
-            }
-          ]
-        });
-      }
-      setIsLoading(false);
-    }, 400);
+    loadChannel(query);
   };
 
   const calculateCustomRevenue = () => {
-    const monthlyViews = selectedChannel.monthlyViewsCount || 1000000;
+    const monthlyViews = selectedChannel?.monthlyViewsCount || 0;
     const est = (monthlyViews / 1000) * cpm;
-    return Math.round(est).toLocaleString();
+    return Math.round(est).toLocaleString('en-US');
+  };
+
+  const calculateTotalLifetimeRevenue = () => {
+    const totalViews = selectedChannel?.viewsCount || 0;
+    const est = (totalViews / 1000) * cpm;
+    return Math.round(est).toLocaleString('en-US');
   };
 
   return (
@@ -79,20 +94,20 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
       <div className="relative rounded-3xl overflow-hidden glass-panel-glow p-6 sm:p-10 border border-white/10">
         <div className="absolute inset-0 bg-gradient-to-r from-[#FF385C]/10 via-[#8B5CF6]/10 to-[#00F0FF]/10 pointer-events-none"></div>
         <div className="relative z-10 max-w-3xl mx-auto text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-gray-300">
-            <Sparkles className="w-4 h-4 text-[#FF385C] animate-pulse" />
-            <span>VidIQ Pro darajasidagi 100% bepul tahlilchi</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs font-semibold text-emerald-300">
+            <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
+            <span>100% Real-Time Ochiq YouTube Maʼlumotlar Bazasi</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
-            Istalgan YouTube Kanalni <br className="hidden sm:block"/>
+            Istalgan YouTube Blogerni <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF385C] via-[#c084fc] to-[#00F0FF]">
-              1-Klikda Tahlil Qiling
+              Haqiqiy Statistikasini Koʻring
             </span>
           </h1>
 
           <p className="text-sm sm:text-base text-gray-400 max-w-xl mx-auto">
-            Oylik daromad, obunachilar dinamikasi, abloshka sifati va auditoriya faolligini hech qanday cheklovlarsiz koʻring.
+            Jonli obunachilar soni, jami prasmotrlar, real videolar, layk va izohlar hamda taxminiy daromadni ochiq YouTube maʼlumotlari asosida tahlil qiling.
           </p>
 
           {/* Search Box */}
@@ -103,7 +118,7 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Masalan: @najottalim, @subyektiv, @mrbeast yoki havola..."
+                placeholder="Kanal nomi yoki linki (masalan: mittivine, subyektiv, isomtv, konsta)..."
                 className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-[#080b11]/90 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#FF385C] focus:ring-2 focus:ring-[#FF385C]/20 text-sm transition-all shadow-inner"
               />
             </div>
@@ -117,7 +132,7 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Tahlil Qilish</span>
+                  <span>Haqiqiy Tahlil</span>
                 </>
               )}
             </button>
@@ -125,137 +140,239 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
 
           {/* Quick preset chips */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-            <span className="text-xs text-gray-500 font-medium">Ommabop namunalar:</span>
-            {Object.keys(POPULAR_CHANNELS).map((handle) => (
+            <span className="text-xs text-gray-400 font-medium">Tezkor tekshirish:</span>
+            {QUICK_CHANNELS.map((item) => (
               <button
-                key={handle}
+                key={item.query}
                 onClick={() => {
-                  setQuery(handle);
-                  setSelectedChannel(POPULAR_CHANNELS[handle]);
+                  setQuery(item.query);
+                  loadChannel(item.query);
                 }}
-                className={`text-xs px-3 py-1 rounded-xl transition-all ${
-                  selectedChannel?.handle === handle
-                    ? 'bg-[#FF385C]/20 border border-[#FF385C] text-white font-semibold'
-                    : 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                className={`text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  query.toLowerCase() === item.query
+                    ? 'bg-[#FF385C]/20 border border-[#FF385C] text-white font-bold'
+                    : 'bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10'
                 }`}
               >
-                {POPULAR_CHANNELS[handle].name}
+                {item.label}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Selected Channel Dashboard */}
-      {selectedChannel && (
+      {/* Error State */}
+      {errorMsg && (
+        <div className="glass-panel p-6 rounded-2xl border border-red-500/30 bg-red-500/10 flex items-center gap-3 text-red-300 text-sm">
+          <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Loading Skeleton */}
+      {isLoading && (
+        <div className="glass-panel rounded-3xl p-12 text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-[#FF385C] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-bold text-white">
+            YouTube ochiq maʼlumotlar bazasidan haqiqiy kanal statistikasi yuklanmoqda...
+          </p>
+        </div>
+      )}
+
+      {/* Other Matching Channels Bar (if user wants to switch between similar channels) */}
+      {!isLoading && selectedChannel?.candidates?.length > 1 && (
+        <div className="glass-panel px-5 py-3.5 rounded-2xl flex items-center gap-3 overflow-x-auto no-scrollbar">
+          <span className="text-xs font-bold text-gray-400 shrink-0">Mos kelgan kanallar:</span>
+          {selectedChannel.candidates.map((cand) => {
+            const isCurrent = cand.id === selectedChannel.id;
+            return (
+              <button
+                key={cand.id}
+                onClick={() => loadChannel(query, cand)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs transition-all shrink-0 cursor-pointer ${
+                  isCurrent
+                    ? 'bg-gradient-to-r from-[#FF385C] to-[#8B5CF6] text-white font-bold shadow-md'
+                    : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/5'
+                }`}
+              >
+                {cand.pfp && (
+                  <img
+                    src={cand.pfp}
+                    alt={cand.title}
+                    referrerPolicy="no-referrer"
+                    className="w-5 h-5 rounded-full object-cover"
+                  />
+                )}
+                <span>{cand.title}</span>
+                {cand.handle && <span className="text-[10px] opacity-75">({cand.handle})</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Selected Channel Real Dashboard */}
+      {!isLoading && selectedChannel && (
         <div className="space-y-6">
-          {/* Channel Identity Card */}
-          <div className="glass-panel rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="flex items-center gap-4 sm:gap-6">
-              <img
-                src={selectedChannel.avatar}
-                alt={selectedChannel.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-2 border-[#FF385C]/40 shadow-xl"
-              />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-2xl sm:text-3xl font-black text-white">{selectedChannel.name}</h2>
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                </div>
-                <p className="text-gray-400 text-sm font-medium">{selectedChannel.handle}</p>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="text-xs px-2.5 py-1 rounded-lg bg-white/5 text-gray-300 border border-white/10">
-                    📍 {selectedChannel.country}
-                  </span>
-                  <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                    🎯 {selectedChannel.niche}
-                  </span>
-                  <span className="text-xs px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                    🚀 {selectedChannel.growthRate} oylik o'sish
-                  </span>
+          {/* Channel Identity Card with Real Banner */}
+          <div className="glass-panel rounded-3xl overflow-hidden border border-white/10">
+            {selectedChannel.banner && (
+              <div className="h-28 sm:h-40 w-full relative overflow-hidden bg-[#0c121e]">
+                <img
+                  src={selectedChannel.banner}
+                  alt={selectedChannel.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover opacity-80"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#080b11] via-transparent to-transparent"></div>
+              </div>
+            )}
+
+            <div className="p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4 sm:gap-6">
+                <img
+                  src={selectedChannel.avatar}
+                  alt={selectedChannel.name}
+                  referrerPolicy="no-referrer"
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-2 border-[#FF385C] shadow-2xl bg-[#0c121e]"
+                />
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-2xl sm:text-3xl font-black text-white">{selectedChannel.name}</h2>
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-bold text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      JONLI (LIVE)
+                    </span>
+                  </div>
+                  <p className="text-gray-400 text-sm font-medium mt-0.5">
+                    {selectedChannel.handle} • ID: <span className="font-mono text-xs text-gray-500">{selectedChannel.id}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    <span className="text-xs px-2.5 py-1 rounded-lg bg-white/5 text-gray-300 border border-white/10">
+                      📹 Jami: <strong className="text-white">{selectedChannel.videoCount}</strong> ta video
+                    </span>
+                    <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                      👁️ Oʻrtacha 1 video: <strong className="text-white">{selectedChannel.avgViewPerVideo}</strong> koʻrish
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <a
-                href={`https://youtube.com/${selectedChannel.handle}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition-all"
-              >
-                <span>YouTube da ochish</span>
-                <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
-              </a>
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <button
+                  onClick={() => setIsLiveUpdating(!isLiveUpdating)}
+                  className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    isLiveUpdating
+                      ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                      : 'bg-white/5 border-white/10 text-gray-400'
+                  }`}
+                >
+                  {isLiveUpdating ? '🔴 Live: Yoqilgan' : '⏸ Live: Toʻxtatilgan'}
+                </button>
+                <a
+                  href={`https://www.youtube.com/channel/${selectedChannel.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 md:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-[#FF385C] hover:brightness-110 text-xs font-bold text-white transition-all shadow-lg shadow-red-600/20"
+                >
+                  <span>YouTube Kanalga Oʻtish</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
             </div>
           </div>
 
-          {/* Metric Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 4 Main Real Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-[#FF385C]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">Jami Obunachilar</span>
+                <span className="text-xs font-medium text-gray-400">Aniq Obunachilar (Live)</span>
                 <Users className="w-4 h-4 text-[#FF385C]" />
               </div>
-              <div className="text-2xl font-black text-white">{selectedChannel.subscribers}</div>
+              <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
+                {selectedChannel.subscribers}
+              </div>
               <p className="text-[11px] text-emerald-400 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" /> {selectedChannel.growthRate} oylik dinamika
+                <TrendingUp className="w-3 h-3" /> Har 5 soniyada yangilanadi
               </p>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-[#8B5CF6]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">Oylik Ko'rishlar</span>
+                <span className="text-xs font-medium text-gray-400">Jami Koʻrishlar (Prasmotr)</span>
                 <Eye className="w-4 h-4 text-[#8B5CF6]" />
               </div>
-              <div className="text-2xl font-black text-white">{selectedChannel.monthlyViews}</div>
+              <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
+                {selectedChannel.totalViews}
+              </div>
               <p className="text-[11px] text-gray-400">
-                Jami: {selectedChannel.totalViews} ko'rish
+                Taxminiy oylik: <strong className="text-gray-200">{selectedChannel.monthlyViews}</strong> koʻrish
               </p>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-emerald-500">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">Auditoriya Faolligi</span>
+                <span className="text-xs font-medium text-gray-400">Auditoriya Faolligi (ER)</span>
                 <Award className="w-4 h-4 text-emerald-400" />
               </div>
-              <div className="text-2xl font-black text-white">{selectedChannel.engagementRate}</div>
-              <p className="text-[11px] text-emerald-400">Yuqori faollik (Layk & Izohlar)</p>
+              <div className="text-2xl sm:text-3xl font-black text-white font-mono">
+                {selectedChannel.engagementRate}
+              </div>
+              <p className="text-[11px] text-emerald-400">
+                Real layk va izohlar nisbati
+              </p>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-[#00F0FF]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">SEO & Optimallashuv</span>
+                <span className="text-xs font-medium text-gray-400">Kanal SEO & Aktivlik</span>
                 <Sparkles className="w-4 h-4 text-[#00F0FF]" />
               </div>
-              <div className="text-2xl font-black text-white">{selectedChannel.seoScore} / 100</div>
-              <p className="text-[11px] text-[#00F0FF]">Teglar va tavsif a'lo darajada</p>
+              <div className="text-2xl sm:text-3xl font-black text-white font-mono">
+                {selectedChannel.seoScore} / 100
+              </div>
+              <p className="text-[11px] text-[#00F0FF]">
+                {selectedChannel.videoCount} ta yuklangan video asosida
+              </p>
             </div>
           </div>
 
-          {/* Revenue Calculator Widget */}
+          {/* Real Revenue Calculator Widget */}
           <div className="glass-panel-glow rounded-3xl p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-emerald-400" />
                   <h3 className="text-lg sm:text-xl font-bold text-white">
-                    Oylik Taxminiy Daromad Kalkulyatori
+                    Haqiqiy Koʻrishlar Asosida Daromad Kalkulyatori
                   </h3>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  YouTube AdSense qoidalariga koʻra oylik koʻrishlar soni va mintaqaviy CPM asosida hisoblangan
+                  Kanalning real koʻrishlar soni ({selectedChannel.totalViews}) va oylik oqim ({selectedChannel.monthlyViews}) asosida hisoblangan:
                 </p>
               </div>
 
-              <div className="text-right">
-                <span className="text-xs text-gray-400 block">Kutilayotgan oylik daromad:</span>
-                <span className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-                  ~${calculateCustomRevenue()} / oy
-                </span>
-                <span className="text-[11px] text-gray-500 block">
-                  (Minimal: ${selectedChannel.monthlyRevenueMin.toLocaleString()} — Maksimal: ${selectedChannel.monthlyRevenueMax.toLocaleString()})
-                </span>
+              <div className="flex flex-wrap gap-6 md:text-right">
+                <div>
+                  <span className="text-xs text-gray-400 block">Oylik taxminiy daromad:</span>
+                  <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
+                    ~${calculateCustomRevenue()} / oy
+                  </span>
+                  <span className="text-[11px] text-gray-500 block">
+                    (Oraliq: ${selectedChannel.monthlyRevenueMin.toLocaleString()} — ${selectedChannel.monthlyRevenueMax.toLocaleString()})
+                  </span>
+                </div>
+
+                <div className="border-l border-white/10 pl-6">
+                  <span className="text-xs text-gray-400 block">Jami (Umumiy) ishlagan daromadi:</span>
+                  <span className="text-2xl sm:text-3xl font-black text-[#00F0FF] font-mono">
+                    ~${calculateTotalLifetimeRevenue()}
+                  </span>
+                  <span className="text-[11px] text-gray-500 block">
+                    Kanal ochilganidan beri ({selectedChannel.totalViews} prasmotr)
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -264,15 +381,15 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="text-gray-300 flex items-center gap-1.5">
                   <Sliders className="w-3.5 h-3.5 text-[#FF385C]" />
-                  CPM Stavkasini Sozlash (Har 1,000 ta ko'rish uchun daromad):
+                  CPM Stavkasini Sozlash (Har 1,000 ta koʻrish uchun YouTube toʻlovi):
                 </span>
-                <span className="text-white px-2 py-0.5 rounded bg-white/10 font-mono">
+                <span className="text-white px-2.5 py-1 rounded-lg bg-[#FF385C]/20 border border-[#FF385C]/40 font-mono">
                   ${cpm.toFixed(2)} CPM
                 </span>
               </div>
               <input
                 type="range"
-                min="0.5"
+                min="0.4"
                 max="8.0"
                 step="0.1"
                 value={cpm}
@@ -280,75 +397,138 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                 className="w-full accent-[#FF385C] cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-gray-500">
-                <span>$0.50 (O'zbekiston / MDH pastki)</span>
-                <span>$1.80 (O'rtacha o'zbek bozori)</span>
-                <span>$4.50 (Yevropa/Rossiya)</span>
-                <span>$8.00+ (AQSH / Kripto / IT)</span>
+                <span>$0.50 (Oʻzbekiston koʻngilochar)</span>
+                <span>$1.80 (Oʻzbekiston taʼlim/biznes)</span>
+                <span>$4.00 (Rossiya / Yevropa)</span>
+                <span>$8.00 (AQSH / Global)</span>
               </div>
             </div>
           </div>
 
-          {/* Top Tags & Keywords */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="glass-panel p-6 rounded-3xl space-y-4">
-              <div className="flex items-center gap-2">
-                <Tag className="w-4 h-4 text-[#FF385C]" />
-                <h4 className="font-bold text-white text-sm">Kanalning Eng Ommabop Teglari</h4>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {selectedChannel.topTags.map((tag, i) => (
-                  <span
-                    key={i}
-                    className="text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-gray-300 flex items-center gap-1 transition-colors"
-                  >
-                    <span>#{tag}</span>
-                    <span className="text-[10px] text-emerald-400 font-mono font-bold">
-                      {95 - i * 3}%
-                    </span>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Video List with CTR analysis trigger */}
-            <div className="glass-panel p-6 rounded-3xl space-y-4">
+          {/* Real Videos & Real Keywords Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left 8 cols: Real Videos from the Channel */}
+            <div className="lg:col-span-8 glass-panel p-6 rounded-3xl space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Video className="w-4 h-4 text-[#8B5CF6]" />
-                  <h4 className="font-bold text-white text-sm">So'nggi Videolar & CTR</h4>
+                  <Video className="w-5 h-5 text-[#FF385C]" />
+                  <h4 className="font-bold text-white text-base">
+                    {selectedChannel.name} — Haqiqiy Videolari va Statistikasi
+                  </h4>
                 </div>
-                <span className="text-[11px] text-gray-400">Kliklash ehtimoli</span>
+                <span className="text-xs text-gray-400">Ochiq YouTube maʼlumoti</span>
               </div>
 
-              <div className="space-y-3">
-                {selectedChannel.recentVideos.map((video, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all group"
-                  >
-                    <img
-                      src={video.thumbnail}
-                      alt={video.title}
-                      className="w-20 h-12 rounded-lg object-cover border border-white/10"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-white truncate group-hover:text-[#FF385C] transition-colors">
-                        {video.title}
-                      </p>
-                      <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-0.5">
-                        <span>{video.views} ko'rish</span>
-                        <span>•</span>
-                        <span>{video.date}</span>
+              {selectedChannel.recentVideos.length === 0 ? (
+                <p className="text-xs text-gray-400 py-6 text-center">
+                  Videolar roʻyxati topilmadi.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {selectedChannel.recentVideos.map((video) => (
+                    <div
+                      key={video.id}
+                      className="bg-[#080b11]/80 rounded-2xl overflow-hidden border border-white/10 hover:border-[#FF385C]/40 transition-all flex flex-col justify-between group"
+                    >
+                      <div>
+                        <div className="relative aspect-video overflow-hidden bg-black">
+                          <img
+                            src={video.thumbnail}
+                            alt={video.title}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/80 text-[10px] font-mono text-emerald-400 border border-white/10">
+                            ER: {video.engagement}
+                          </div>
+                        </div>
+
+                        <div className="p-3.5 space-y-2">
+                          <a
+                            href={video.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-bold text-white line-clamp-2 hover:text-[#FF385C] transition-colors"
+                          >
+                            {video.title}
+                          </a>
+
+                          <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-400">
+                            <span className="flex items-center gap-1 text-white font-semibold">
+                              <Eye className="w-3.5 h-3.5 text-[#00F0FF]" />
+                              {video.views}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <ThumbsUp className="w-3 h-3 text-emerald-400" />
+                              {video.likes}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MessageCircle className="w-3 h-3 text-purple-400" />
+                              {video.comments}
+                            </span>
+                            <span className="text-gray-500 ml-auto">{video.date}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="px-3.5 pb-3.5 pt-1 flex items-center gap-2">
+                        {onAnalyzeThumbnail && (
+                          <button
+                            onClick={() => onAnalyzeThumbnail(video)}
+                            className="flex-1 py-2 px-3 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-[11px] font-bold text-purple-200 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5 text-[#8B5CF6]" />
+                            <span>Abloshkani AI Tahlil Qilish</span>
+                          </button>
+                        )}
+                        <a
+                          href={video.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all"
+                          title="YouTube da ko'rish"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs font-bold text-emerald-400 block font-mono">
-                        {video.ctr}
-                      </span>
-                      <span className="text-[9px] text-gray-500 uppercase">CTR</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Right 4 cols: Real Extracted Keywords & Channel Summary */}
+            <div className="lg:col-span-4 space-y-6">
+              <div className="glass-panel p-6 rounded-3xl space-y-4">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-[#FF385C]" />
+                  <h4 className="font-bold text-white text-sm">
+                    Videolardan Olingan Haqiqiy Teglar & Mavzular
+                  </h4>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedChannel.topTags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 flex items-center gap-1.5"
+                    >
+                      <span>#{tag}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="glass-panel p-6 rounded-3xl space-y-3 border-l-4 border-l-emerald-500">
+                <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span>AI Kanal Xulosasi</span>
+                </h4>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  <strong>{selectedChannel.name}</strong> kanali hozirda{' '}
+                  <strong>{selectedChannel.subscribers}</strong> obunachiga va jami{' '}
+                  <strong>{selectedChannel.totalViews}</strong> koʻrishga ega. Har bir yuklangan videoga oʻrtacha{' '}
+                  <strong>{selectedChannel.avgViewPerVideo}</strong> ta koʻrish toʻgʻri kelmoqda.
+                </p>
               </div>
             </div>
           </div>
