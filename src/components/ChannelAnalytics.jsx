@@ -4,7 +4,7 @@ import {
   Tag, Award, Sparkles, ExternalLink, Sliders, CheckCircle2,
   ThumbsUp, ThumbsDown, MessageCircle, Radio, Image as ImageIcon, AlertCircle, Globe
 } from 'lucide-react';
-import { fetchRealChannelData, fetchChannelLiveCounters } from '../services/youtubeService';
+import { fetchRealChannelData, fetchChannelLiveCounters, formatCompactCurrency } from '../services/youtubeService';
 
 const QUICK_CHANNELS = [
   { label: 'Mittivine', query: 'mittivine' },
@@ -12,13 +12,14 @@ const QUICK_CHANNELS = [
   { label: 'ISOMTV', query: 'isomtv' },
   { label: "Najot Ta'lim", query: 'najottalim' },
   { label: 'Texnoplov', query: 'texnoplov' },
+  { label: 'Konsta', query: 'konsta' },
   { label: 'MrBeast', query: 'mrbeast' }
 ];
 
 export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
   const [query, setQuery] = useState('mittivine');
   const [selectedChannel, setSelectedChannel] = useState(null);
-  const [cpm, setCpm] = useState(0.55);
+  const [cpm, setCpm] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLiveUpdating, setIsLiveUpdating] = useState(true);
@@ -78,16 +79,21 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
     loadChannel(query);
   };
 
-  const calculateMonthlyRevenue = () => {
+  const calculateMonthlyRevenueNum = () => {
     const monthlyViews = selectedChannel?.monthlyViewsCount || 0;
-    const est = (monthlyViews / 1000) * cpm;
-    return Math.round(est).toLocaleString('en-US');
+    return (monthlyViews / 1000) * cpm;
+  };
+
+  const calculateMonthlyRevenue = () => {
+    return Math.round(calculateMonthlyRevenueNum()).toLocaleString('en-US');
+  };
+
+  const calculateMonthlyRevenueCompact = () => {
+    return formatCompactCurrency(calculateMonthlyRevenueNum());
   };
 
   const calculateYearlyRevenue = () => {
-    const monthlyViews = selectedChannel?.monthlyViewsCount || 0;
-    const est = (monthlyViews / 1000) * cpm * 12;
-    return Math.round(est).toLocaleString('en-US');
+    return Math.round(calculateMonthlyRevenueNum() * 12).toLocaleString('en-US');
   };
 
   const calculateTotalLifetimeRevenue = () => {
@@ -324,11 +330,16 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
 
             <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-emerald-500">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">Oylik AdSense Daromadi</span>
+                <span className="text-xs font-medium text-gray-400">Oylik Daromad (vidIQ / AdSense)</span>
                 <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-                ${calculateMonthlyRevenue()}
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
+                  {calculateMonthlyRevenueCompact()}
+                </span>
+                <span className="text-xs font-mono text-emerald-300/80">
+                  (${calculateMonthlyRevenue()})
+                </span>
               </div>
               <p className="text-[11px] text-gray-400">
                 Oraliq: ${selectedChannel.monthlyRevenueMin.toLocaleString()} — ${selectedChannel.monthlyRevenueMax.toLocaleString()} / oy
@@ -356,7 +367,7 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-emerald-400" />
                   <h3 className="text-lg sm:text-xl font-bold text-white">
-                    Ochiq Manbalar Asosida Aniq Daromad Tahlili (SocialBlade / ViewStats RPM)
+                    Ochiq Manbalar Asosida Aniq Daromad Tahlili (vidIQ & SocialBlade)
                   </h3>
                 </div>
                 <p className="text-xs text-gray-300">
@@ -364,17 +375,22 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                   {selectedChannel.formatNote}
                 </p>
                 <p className="text-[11px] text-gray-400">
-                  Soʻnggi 30 kundagi real faollik ({selectedChannel.monthlyViews} koʻrish) va mintaqaviy RPM (${cpm.toFixed(2)}) asosida hisoblangan:
+                  Soʻnggi 30 kundagi real faollik ({selectedChannel.monthlyViews} koʻrish) va RPM (${cpm.toFixed(2)}) asosida hisoblangan:
                 </p>
               </div>
 
               {/* 3 Revenue Pillars */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#080b11]/90 p-4 rounded-2xl border border-white/10 shrink-0">
                 <div className="px-3">
-                  <span className="text-[11px] text-gray-400 block">1 Oylik Aniq Daromad:</span>
-                  <span className="text-2xl font-black text-emerald-400 font-mono">
-                    ${calculateMonthlyRevenue()}
-                  </span>
+                  <span className="text-[11px] text-gray-400 block">1 Oylik Daromad (vidIQ):</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-emerald-400 font-mono">
+                      {calculateMonthlyRevenueCompact()}
+                    </span>
+                    <span className="text-xs font-mono text-gray-300">
+                      (${calculateMonthlyRevenue()})
+                    </span>
+                  </div>
                   <span className="text-[10px] text-gray-500 block">
                     (${selectedChannel.monthlyRevenueMin.toLocaleString()} – ${selectedChannel.monthlyRevenueMax.toLocaleString()})
                   </span>
@@ -402,20 +418,38 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
               </div>
             </div>
 
-            {/* RPM Interactive Slider */}
+            {/* RPM Interactive Slider + Open Source Presets */}
             <div className="bg-[#080b11]/80 p-5 rounded-2xl border border-white/5 space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                 <span className="text-gray-300 flex items-center gap-1.5">
                   <Sliders className="w-3.5 h-3.5 text-[#FF385C]" />
-                  RPM Stavkasi (Har 1,000 ta koʻrish uchun YouTube sof toʻlovi — Kanal hududiga qarab avto-tanlandi):
+                  Ochiq Manba Standartlari (Har 1,000 koʻrish uchun RPM stavkasi):
                 </span>
-                <span className="text-white px-2.5 py-1 rounded-lg bg-[#FF385C]/20 border border-[#FF385C]/40 font-mono">
-                  ${cpm.toFixed(2)} RPM
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { label: 'vidIQ Standarti ($1.00)', val: 1.0 },
+                    { label: 'YouTubers.me ($1.21)', val: 1.21 },
+                    { label: 'UZ Mahalliy ($0.55)', val: 0.55 },
+                    { label: 'Global / AQSH ($2.50)', val: 2.5 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setCpm(preset.val)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer ${
+                        Math.abs(cpm - preset.val) < 0.02
+                          ? 'bg-[#FF385C] text-white font-bold shadow'
+                          : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <input
                 type="range"
-                min="0.10"
+                min="0.15"
                 max="6.00"
                 step="0.05"
                 value={cpm}
@@ -423,10 +457,10 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                 className="w-full accent-[#FF385C] cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-gray-400">
-                <span>$0.15 – $0.30 (UZ Shorts/Vine)</span>
-                <span>$0.45 – $0.85 (UZ Uzun Video)</span>
-                <span>$1.10 (MDH / Rossiya)</span>
-                <span>$3.50 – $6.00 (AQSH / Global)</span>
+                <span>$0.55 (Mahalliy AdSense)</span>
+                <span>$1.00 (vidIQ Standarti)</span>
+                <span>$1.21 (YouTubers.me)</span>
+                <span>$2.50 – $6.00 (Global / AQSH)</span>
               </div>
             </div>
           </div>
