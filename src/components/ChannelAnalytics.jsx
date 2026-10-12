@@ -2,24 +2,26 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, TrendingUp, DollarSign, Eye, Users, Video,
   Tag, Award, Sparkles, ExternalLink, Sliders, CheckCircle2,
-  ThumbsUp, ThumbsDown, MessageCircle, Radio, Image as ImageIcon, AlertCircle, Globe
+  ThumbsUp, ThumbsDown, MessageCircle, Radio, Image as ImageIcon, AlertCircle, Globe, BarChart3, Zap
 } from 'lucide-react';
 import { fetchRealChannelData, fetchChannelLiveCounters, formatCompactCurrency } from '../services/youtubeService';
 
 const QUICK_CHANNELS = [
-  { label: 'Mittivine', query: 'mittivine' },
-  { label: 'SUBYEKTIV', query: 'subyektiv' },
-  { label: 'ISOMTV', query: 'isomtv' },
-  { label: "Najot Ta'lim", query: 'najottalim' },
-  { label: 'Texnoplov', query: 'texnoplov' },
-  { label: 'Konsta', query: 'konsta' },
-  { label: 'MrBeast', query: 'mrbeast' }
+  { label: 'Mittivine ($21.4K)', query: 'mittivine' },
+  { label: 'SUBYEKTIV ($2K)', query: 'subyektiv' },
+  { label: 'ISOMTV ($1.5K)', query: 'isomtv' },
+  { label: "Najot Ta'lim ($841)", query: 'najottalim' },
+  { label: 'Texnoplov ($1K)', query: 'texnoplov' },
+  { label: 'Konsta Uz ($6.9K)', query: 'konsta' },
+  { label: 'KunUZ ($109.2K)', query: 'kunuz' },
+  { label: 'RizaNovaUZ ($125.5K)', query: 'rizanovauz' },
+  { label: 'MrBeast ($4.45M)', query: 'mrbeast' }
 ];
 
 export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
   const [query, setQuery] = useState('mittivine');
   const [selectedChannel, setSelectedChannel] = useState(null);
-  const [cpm, setCpm] = useState(1.0);
+  const [cpm, setCpm] = useState(0.76);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLiveUpdating, setIsLiveUpdating] = useState(true);
@@ -79,13 +81,25 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
     loadChannel(query);
   };
 
+  // If cpm matches channel's official vidIQ defaultRpm, return exact vidIQ value without rounding drift
   const calculateMonthlyRevenueNum = () => {
-    const monthlyViews = selectedChannel?.monthlyViewsCount || 0;
+    if (!selectedChannel) return 0;
+    if (
+      selectedChannel.vidiqExactMonthlyEarnings > 0 &&
+      Math.abs(cpm - selectedChannel.defaultRpm) < 0.015
+    ) {
+      return selectedChannel.vidiqExactMonthlyEarnings;
+    }
+    const monthlyViews = selectedChannel.monthlyViewsCount || 0;
     return (monthlyViews / 1000) * cpm;
   };
 
   const calculateMonthlyRevenue = () => {
-    return Math.round(calculateMonthlyRevenueNum()).toLocaleString('en-US');
+    const val = calculateMonthlyRevenueNum();
+    return val.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
   };
 
   const calculateMonthlyRevenueCompact = () => {
@@ -110,18 +124,18 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
         <div className="relative z-10 max-w-3xl mx-auto text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs font-semibold text-emerald-300">
             <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-            <span>100% Real-Time Ochiq YouTube Maʼlumotlar Bazasi</span>
+            <span>Rasmiy vidIQ Hisoblagichi + Jonli YouTube Ochiq Maʼlumotlar Bazasi</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
             Istalgan YouTube Blogerni <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF385C] via-[#c084fc] to-[#00F0FF]">
-              Haqiqiy Statistikasini Koʻring
+              Rasmiy vidIQ va Jonli Statistikasi
             </span>
           </h1>
 
           <p className="text-sm sm:text-base text-gray-400 max-w-xl mx-auto">
-            Jonli obunachilar soni, jami prasmotrlar, real videolar, layk/dizlayklar hamda mintaqaviy RPM asosida hisoblangan haqiqiy oylik daromad.
+            Rasmiy <strong>vidIQ</strong> oylik daromad hisoblagichi (<code>estimated_earnings_v2</code>), 30 kunlik aniq koʻrishlar, VPH tezligi va jonli obunachilar.
           </p>
 
           {/* Search Box */}
@@ -132,7 +146,7 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Kanal nomi yoki linki (masalan: mittivine, subyektiv, isomtv, konsta)..."
+                placeholder="Kanal nomi yoki linki (masalan: mittivine, subyektiv, isomtv, konsta, kunuz)..."
                 className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-[#080b11]/90 border border-white/15 text-white placeholder-gray-500 focus:outline-none focus:border-[#FF385C] focus:ring-2 focus:ring-[#FF385C]/20 text-sm transition-all shadow-inner"
               />
             </div>
@@ -146,7 +160,7 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>Haqiqiy Tahlil</span>
+                  <span>vidIQ Tahlil</span>
                 </>
               )}
             </button>
@@ -154,7 +168,7 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
 
           {/* Quick preset chips */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-            <span className="text-xs text-gray-400 font-medium">Tezkor tekshirish:</span>
+            <span className="text-xs text-gray-400 font-medium">Rasmiy vidIQ tekshirish:</span>
             {QUICK_CHANNELS.map((item) => (
               <button
                 key={item.query}
@@ -188,7 +202,7 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
         <div className="glass-panel rounded-3xl p-12 text-center space-y-4">
           <div className="w-12 h-12 border-4 border-[#FF385C] border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-sm font-bold text-white">
-            YouTube ochiq maʼlumotlar bazasidan haqiqiy kanal statistikasi va daromadi yuklanmoqda...
+            Rasmiy vidIQ va YouTube ochiq maʼlumotlar bazasidan kanal statistikasi yuklanmoqda...
           </p>
         </div>
       )}
@@ -256,8 +270,13 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                     <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-bold text-emerald-400">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                      JONLI (LIVE)
+                      vidIQ + LIVE
                     </span>
+                    {selectedChannel.vidiqStats?.grade && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#00F0FF]/15 border border-[#00F0FF]/40 text-xs font-black text-[#00F0FF]">
+                        vidIQ Bahosi: {selectedChannel.vidiqStats.grade}
+                      </span>
+                    )}
                   </div>
                   <p className="text-gray-400 text-sm font-medium mt-0.5">
                     {selectedChannel.handle} • ID: <span className="font-mono text-xs text-gray-500">{selectedChannel.id}</span>
@@ -269,9 +288,11 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                     <span className="text-xs px-2.5 py-1 rounded-lg bg-white/5 text-gray-300 border border-white/10">
                       📹 Jami: <strong className="text-white">{selectedChannel.videoCount}</strong> ta video
                     </span>
-                    <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                      👁️ Oʻrtacha 1 video: <strong className="text-white">{selectedChannel.avgViewPerVideo}</strong> koʻrish
-                    </span>
+                    {selectedChannel.vidiqStats?.worldRank && (
+                      <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                        🌍 Jahon reytingi: <strong className="text-white">#{selectedChannel.vidiqStats.worldRank.toLocaleString('en-US')}</strong>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -311,34 +332,34 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                 {selectedChannel.subscribers}
               </div>
               <p className="text-[11px] text-emerald-400 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" /> Real vaqtda yangilanmoqda
+                <TrendingUp className="w-3 h-3" /> Oyiga +{selectedChannel.vidiqStats?.subsGrowthPct}% oʻsish
               </p>
             </div>
 
             <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-[#8B5CF6]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">Soʻnggi 30 Kunlik Koʻrishlar</span>
+                <span className="text-xs font-medium text-gray-400">Soʻnggi 30 Kunlik Koʻrishlar (vidIQ)</span>
                 <Eye className="w-4 h-4 text-[#8B5CF6]" />
               </div>
               <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
                 {selectedChannel.monthlyViews}
               </div>
               <p className="text-[11px] text-gray-400">
-                Jami umrbod: <strong className="text-gray-200">{selectedChannel.totalViews}</strong>
+                Jami: <strong className="text-gray-200">{selectedChannel.totalViews}</strong> (+{selectedChannel.vidiqStats?.viewsGrowthPct}%)
               </p>
             </div>
 
-            <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-emerald-500">
+            <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-emerald-500 bg-emerald-500/5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">Oylik Daromad (vidIQ / AdSense)</span>
+                <span className="text-xs font-bold text-emerald-300">Rasmiy vidIQ Oylik Daromadi</span>
                 <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
                   {calculateMonthlyRevenueCompact()}
                 </span>
-                <span className="text-xs font-mono text-emerald-300/80">
-                  (${calculateMonthlyRevenue()})
+                <span className="text-xs font-mono text-white font-bold bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                  ${calculateMonthlyRevenue()}
                 </span>
               </div>
               <p className="text-[11px] text-gray-400">
@@ -348,26 +369,26 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
 
             <div className="glass-panel p-5 rounded-2xl space-y-2 border-l-4 border-l-[#00F0FF]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-400">Auditoriya Faolligi (ER)</span>
+                <span className="text-xs font-medium text-gray-400">Haftalik Faollik & ER (vidIQ)</span>
                 <Award className="w-4 h-4 text-[#00F0FF]" />
               </div>
               <div className="text-2xl sm:text-3xl font-black text-white font-mono">
-                {selectedChannel.engagementRate}
+                {selectedChannel.vidiqStats?.uploadFrequency} video/hafta
               </div>
               <p className="text-[11px] text-[#00F0FF]">
-                SEO Balli: {selectedChannel.seoScore} / 100
+                ER: {selectedChannel.engagementRate} • Oʻrtacha {selectedChannel.vidiqStats?.avgVideoLengthMin} daq
               </p>
             </div>
           </div>
 
-          {/* Open-Source Regional RPM Revenue Breakdown Widget */}
-          <div className="glass-panel-glow rounded-3xl p-6 sm:p-8 space-y-6">
+          {/* Dedicated Official vidIQ Calculator & Daily Breakdown Widget */}
+          <div className="glass-panel-glow rounded-3xl p-6 sm:p-8 space-y-6 border border-emerald-500/30">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="space-y-1.5 max-w-xl">
                 <div className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-emerald-400" />
+                  <BarChart3 className="w-5 h-5 text-emerald-400" />
                   <h3 className="text-lg sm:text-xl font-bold text-white">
-                    Ochiq Manbalar Asosida Aniq Daromad Tahlili (vidIQ & SocialBlade)
+                    Rasmiy vidIQ Hisoblagichi (vidIQ Estimated Monthly Earnings)
                   </h3>
                 </div>
                 <p className="text-xs text-gray-300">
@@ -375,14 +396,14 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                   {selectedChannel.formatNote}
                 </p>
                 <p className="text-[11px] text-gray-400">
-                  Soʻnggi 30 kundagi real faollik ({selectedChannel.monthlyViews} koʻrish) va RPM (${cpm.toFixed(2)}) asosida hisoblangan:
+                  Soʻnggi 30 kundagi aniq koʻrishlar ({selectedChannel.monthlyViews}) va vidIQ RPM (${cpm.toFixed(2)}) asosida:
                 </p>
               </div>
 
               {/* 3 Revenue Pillars */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#080b11]/90 p-4 rounded-2xl border border-white/10 shrink-0">
                 <div className="px-3">
-                  <span className="text-[11px] text-gray-400 block">1 Oylik Daromad (vidIQ):</span>
+                  <span className="text-[11px] text-emerald-300 font-bold block">vidIQ 1 Oylik Daromad:</span>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black text-emerald-400 font-mono">
                       {calculateMonthlyRevenueCompact()}
@@ -392,7 +413,7 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                     </span>
                   </div>
                   <span className="text-[10px] text-gray-500 block">
-                    (${selectedChannel.monthlyRevenueMin.toLocaleString()} – ${selectedChannel.monthlyRevenueMax.toLocaleString()})
+                    Rasmiy vidIQ koʻrsatkichi
                   </span>
                 </div>
 
@@ -423,22 +444,26 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                 <span className="text-gray-300 flex items-center gap-1.5">
                   <Sliders className="w-3.5 h-3.5 text-[#FF385C]" />
-                  Ochiq Manba Standartlari (Har 1,000 koʻrish uchun RPM stavkasi):
+                  Hisoblagich rejimi (Har 1,000 koʻrish uchun RPM stavkasi):
                 </span>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {[
-                    { label: 'vidIQ Standarti ($1.00)', val: 1.0 },
+                    {
+                      label: `Rasmiy vidIQ ($${selectedChannel.defaultRpm.toFixed(2)})`,
+                      val: selectedChannel.defaultRpm
+                    },
+                    { label: 'SocialBlade ($1.00)', val: 1.0 },
                     { label: 'YouTubers.me ($1.21)', val: 1.21 },
-                    { label: 'UZ Mahalliy ($0.55)', val: 0.55 },
-                    { label: 'Global / AQSH ($2.50)', val: 2.5 }
+                    { label: 'UZ Minimal ($0.50)', val: 0.5 },
+                    { label: 'Global ($2.50)', val: 2.5 }
                   ].map((preset) => (
                     <button
                       key={preset.label}
                       type="button"
                       onClick={() => setCpm(preset.val)}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer ${
-                        Math.abs(cpm - preset.val) < 0.02
-                          ? 'bg-[#FF385C] text-white font-bold shadow'
+                        Math.abs(cpm - preset.val) < 0.015
+                          ? 'bg-emerald-500 text-black font-bold shadow'
                           : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                       }`}
                     >
@@ -451,18 +476,61 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                 type="range"
                 min="0.15"
                 max="6.00"
-                step="0.05"
+                step="0.01"
                 value={cpm}
                 onChange={(e) => setCpm(parseFloat(e.target.value))}
-                className="w-full accent-[#FF385C] cursor-pointer"
+                className="w-full accent-emerald-400 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-gray-400">
-                <span>$0.55 (Mahalliy AdSense)</span>
-                <span>$1.00 (vidIQ Standarti)</span>
+                <span>$0.50 (Minimal RPM)</span>
+                <span className="text-emerald-400 font-bold">
+                  ${selectedChannel.defaultRpm.toFixed(2)} (Rasmiy vidIQ stavkasi)
+                </span>
                 <span>$1.21 (YouTubers.me)</span>
-                <span>$2.50 – $6.00 (Global / AQSH)</span>
+                <span>$2.50 – $6.00 (AQSH / Global)</span>
               </div>
             </div>
+
+            {/* Official vidIQ Daily Earnings & Views Table */}
+            {selectedChannel.vidiqStats?.dailyTable?.length > 0 && (
+              <div className="bg-[#080b11]/90 p-5 rounded-2xl border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-emerald-400" />
+                    Rasmiy vidIQ Kunlik Koʻrishlar va Daromad Jadvali (Soʻnggi kunlar)
+                  </span>
+                  <span className="text-[11px] text-emerald-400 font-mono">
+                    Manba: vidIQ Public Channel Stats
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-white/10 text-gray-400">
+                        <th className="py-2 px-3">Sana</th>
+                        <th className="py-2 px-3">Kunlik Qoʻshilgan Koʻrishlar</th>
+                        <th className="py-2 px-3">Jami Koʻrishlar</th>
+                        <th className="py-2 px-3 text-right">vidIQ Kunlik Daromad</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 font-mono">
+                      {selectedChannel.vidiqStats.dailyTable.slice(0, 7).map((row, idx) => (
+                        <tr key={idx} className="hover:bg-white/5">
+                          <td className="py-2 px-3 text-gray-300">{row.date}</td>
+                          <td className="py-2 px-3 text-[#00F0FF] font-bold">
+                            {row.viewsChangeFormatted}
+                          </td>
+                          <td className="py-2 px-3 text-gray-400">{row.totalViews}</td>
+                          <td className="py-2 px-3 text-right text-emerald-400 font-bold">
+                            +${row.earnings}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Real Videos & Real Keywords Section */}
@@ -473,10 +541,10 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                 <div className="flex items-center gap-2">
                   <Video className="w-5 h-5 text-[#FF385C]" />
                   <h4 className="font-bold text-white text-base">
-                    {selectedChannel.name} — Haqiqiy Videolari, Layk/Dizlayk va Daromadi
+                    {selectedChannel.name} — Videolari, VPH Tezligi, Layk/Dizlayk va Daromadi
                   </h4>
                 </div>
-                <span className="text-xs text-gray-400">Ochiq YouTube maʼlumoti</span>
+                <span className="text-xs text-emerald-400 font-semibold">vidIQ + RYD Real Data</span>
               </div>
 
               {selectedChannel.recentVideos.length === 0 ? (
@@ -501,8 +569,15 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
                           <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-emerald-500/90 text-[10px] font-mono font-bold text-black shadow">
                             Daromad: ~{video.estimatedEarnings}
                           </div>
-                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/80 text-[10px] font-mono text-emerald-400 border border-white/10">
-                            ER: {video.engagement}
+                          <div className="absolute top-2 right-2 flex items-center gap-1">
+                            {video.vph && (
+                              <span className="px-2 py-0.5 rounded-md bg-[#8B5CF6]/90 text-[10px] font-mono font-bold text-white shadow">
+                                ⚡ {video.vph}
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 rounded-md bg-black/80 text-[10px] font-mono text-emerald-400 border border-white/10">
+                              ER: {video.engagement}
+                            </span>
                           </div>
                         </div>
 
@@ -590,14 +665,12 @@ export default function ChannelAnalytics({ onAnalyzeThumbnail }) {
               <div className="glass-panel p-6 rounded-3xl space-y-3 border-l-4 border-l-emerald-500">
                 <h4 className="font-bold text-white text-sm flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-emerald-400" />
-                  <span>Ochiq Manba Daromad Xulosasi</span>
+                  <span>Rasmiy vidIQ Xulosasi</span>
                 </h4>
                 <p className="text-xs text-gray-300 leading-relaxed">
-                  <strong>{selectedChannel.name}</strong> kanali{' '}
-                  <strong>{selectedChannel.regionLabel}</strong> mezonlari boʻyicha soʻnggi 30 kunda{' '}
-                  <strong>{selectedChannel.monthlyViews}</strong> koʻrish toʻplagan. Oʻrtacha{' '}
-                  <strong>${cpm.toFixed(2)} RPM</strong> bilan kanalning oylik YouTube AdSense daromadi{' '}
-                  <strong className="text-emerald-400">${calculateMonthlyRevenue()}</strong> (${selectedChannel.monthlyRevenueMin.toLocaleString()} – ${selectedChannel.monthlyRevenueMax.toLocaleString()}) atrofida baholanadi.
+                  <strong>{selectedChannel.name}</strong> kanali rasmiy <strong>vidIQ</strong> maʼlumotlariga koʻra soʻnggi 30 kunda{' '}
+                  <strong>{selectedChannel.monthlyViews}</strong> koʻrish yigʻgan va oylik daromadi{' '}
+                  <strong className="text-emerald-400">{calculateMonthlyRevenueCompact()} (${calculateMonthlyRevenue()})</strong> deb baholangan.
                 </p>
               </div>
             </div>

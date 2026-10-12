@@ -9,4 +9,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      '/api/vidiq': {
+        target: 'https://api.vidiq.com/youtube/channels/public/channel-pages',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/vidiq/, '')
+      }
+    }
+  }
 })
